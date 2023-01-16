@@ -1,6 +1,7 @@
 import time
 from .event import Event
 
+
 def zero_bits(b: int) -> int:
     n = 0
 
@@ -13,10 +14,11 @@ def zero_bits(b: int) -> int:
 
     return 7 - n
 
+
 def count_leading_zero_bits(event_id: str) -> int:
     total = 0
     for i in range(0, len(event_id) - 2, 2):
-        bits = zero_bits(int(event_id[i:i+2], 16))
+        bits = zero_bits(int(event_id[i:i + 2], 16))
         total += bits
 
         if bits != 8:
@@ -24,7 +26,8 @@ def count_leading_zero_bits(event_id: str) -> int:
 
     return total
 
-def mine_event(content: str, difficulty: int, public_key: str, kind: int, tags: list=[]) -> Event:
+
+def mine_event(content: str, difficulty: int, public_key: str, kind: int, tags: list = []) -> Event:
     all_tags = [["nonce", "1", str(difficulty)]]
     all_tags.extend(tags)
 

@@ -20,16 +20,18 @@
 
 """Reference implementation for Bech32/Bech32m and segwit addresses."""
 
-
 from enum import Enum
+
 
 class Encoding(Enum):
     """Enumeration type to list the various supported encodings."""
     BECH32 = 1
     BECH32M = 2
 
+
 CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 BECH32M_CONST = 0x2bc830a3
+
 
 def bech32_polymod(values):
     """Internal function that computes the Bech32 checksum."""
@@ -57,6 +59,7 @@ def bech32_verify_checksum(hrp, data):
         return Encoding.BECH32M
     return None
 
+
 def bech32_create_checksum(hrp, data, spec):
     """Compute the checksum values given HRP and data."""
     values = bech32_hrp_expand(hrp) + data
@@ -70,6 +73,7 @@ def bech32_encode(hrp, data, spec):
     combined = data + bech32_create_checksum(hrp, data, spec)
     return hrp + '1' + ''.join([CHARSET[d] for d in combined])
 
+
 def bech32_decode(bech):
     """Validate a Bech32/Bech32m string, and determine HRP and data."""
     if ((any(ord(x) < 33 or ord(x) > 126 for x in bech)) or
@@ -79,14 +83,15 @@ def bech32_decode(bech):
     pos = bech.rfind('1')
     if pos < 1 or pos + 7 > len(bech) or len(bech) > 90:
         return (None, None, None)
-    if not all(x in CHARSET for x in bech[pos+1:]):
+    if not all(x in CHARSET for x in bech[pos + 1:]):
         return (None, None, None)
     hrp = bech[:pos]
-    data = [CHARSET.find(x) for x in bech[pos+1:]]
+    data = [CHARSET.find(x) for x in bech[pos + 1:]]
     spec = bech32_verify_checksum(hrp, data)
     if spec is None:
         return (None, None, None)
     return (hrp, data[:-6], spec)
+
 
 def convertbits(data, frombits, tobits, pad=True):
     """General power-of-2 base conversion."""

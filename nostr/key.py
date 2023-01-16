@@ -6,6 +6,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
 from . import bech32
 
+
 class PublicKey:
     def __init__(self, raw_bytes: bytes) -> None:
         self.raw_bytes = raw_bytes
@@ -30,7 +31,7 @@ class PublicKey:
 
 
 class PrivateKey:
-    def __init__(self, raw_secret: bytes=None) -> None:
+    def __init__(self, raw_secret: bytes = None) -> None:
         if not raw_secret is None:
             self.raw_secret = raw_secret
         else:
@@ -99,6 +100,8 @@ class PrivateKey:
 
 
 ffi = FFI()
+
+
 @ffi.callback("int (unsigned char *, const unsigned char *, const unsigned char *, void *)")
 def copy_x(output, x32, y32, data):
     ffi.memmove(output, x32, 32)

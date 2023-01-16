@@ -4,6 +4,7 @@ from enum import IntEnum
 from secp256k1 import PrivateKey, PublicKey
 from hashlib import sha256
 
+
 class EventKind(IntEnum):
     SET_METADATA = 0
     TEXT_NOTE = 1
@@ -12,19 +13,20 @@ class EventKind(IntEnum):
     ENCRYPTED_DIRECT_MESSAGE = 4
     DELETE = 5
 
+
 class Event():
     def __init__(
-            self, 
-            public_key: str, 
-            content: str, 
-            created_at: int=int(time.time()), 
-            kind: int=EventKind.TEXT_NOTE, 
-            tags: "list[list[str]]"=[], 
-            id: str=None, 
-            signature: str=None) -> None:
+            self,
+            public_key: str,
+            content: str,
+            created_at: int = int(time.time()),
+            kind: int = EventKind.TEXT_NOTE,
+            tags: "list[list[str]]" = [],
+            id: str = None,
+            signature: str = None) -> None:
         if not isinstance(content, str):
             raise TypeError("Argument 'content' must be of type str")
-        
+
         self.id = id if not id is None else Event.compute_id(public_key, created_at, kind, tags, content)
         self.public_key = public_key
         self.content = content
@@ -49,7 +51,7 @@ class Event():
         self.signature = sig.hex()
 
     def verify(self) -> bool:
-        pub_key = PublicKey(bytes.fromhex("02" + self.public_key), True) # add 02 for schnorr (bip340)
+        pub_key = PublicKey(bytes.fromhex("02" + self.public_key), True)  # add 02 for schnorr (bip340)
         event_id = Event.compute_id(self.public_key, self.created_at, self.kind, self.tags, self.content)
         return pub_key.schnorr_verify(bytes.fromhex(event_id), bytes.fromhex(self.signature), None, raw=True)
 

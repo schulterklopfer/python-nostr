@@ -3,6 +3,7 @@ class ClientMessageType:
     REQUEST = "REQ"
     CLOSE = "CLOSE"
 
+
 class RelayMessageType:
     EVENT = "EVENT"
     NOTICE = "NOTICE"
