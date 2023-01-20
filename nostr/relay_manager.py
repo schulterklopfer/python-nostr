@@ -1,4 +1,6 @@
 import threading
+import time
+
 from .filter import Filters
 from .message_pool import MessagePool
 from .relay import Relay, RelayPolicy
@@ -39,13 +41,14 @@ class RelayManager:
         self.relay_threads[relay.url].start()
 
     def close_connection(self, relay):
-        #relay.close()
         if relay.url in self.relay_threads.keys():
             relay.ws.keep_running = False
             relay.ws.close()
             self.relay_threads[relay.url].join()
+            time.sleep(0.1) # WHY?!?
             print( relay.url+" closed connection")
             del (self.relay_threads[relay.url])
+        relay.close()
 
     def open_connections(self, ssl_options: dict = None):
         for relay in self.relays.values():
