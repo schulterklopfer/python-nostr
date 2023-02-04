@@ -1,11 +1,15 @@
+import asyncio
 import json
-import time
+from loguru import logger
 from queue import Queue
 from threading import Lock
-from websocket import WebSocketApp
+
+import websockets.client
+from websockets.legacy.client import WebSocketClientProtocol
+
 from .event import Event
 from .filter import Filters
-from .message_pool import MessagePool, EventMessage
+from .message_pool import MessagePool
 from .message_type import RelayMessageType
 from .subscription import Subscription
 
@@ -23,56 +27,57 @@ class RelayPolicy:
 
 
 class Relay:
+    ws: WebSocketClientProtocol
+    connected: bool = False
+    broken: bool = False
+    to_publish: Queue[str] = Queue()
+    url: str
+    policy: RelayPolicy
+    message_pool: MessagePool
+    subscriptions: dict[str, Subscription] = {}
+    lock: Lock
+
     def __init__(
             self,
             url: str,
             policy: RelayPolicy,
             message_pool: MessagePool,
             subscriptions: dict[str, Subscription] = {}) -> None:
-        self.connected = False
-        self.broken = False
-        self.to_publish: Queue[str] = Queue()
         self.url = url
         self.policy = policy
         self.message_pool = message_pool
         self.subscriptions = subscriptions
         self.lock = Lock()
-        self.ws = WebSocketApp(
-            url,
-            on_open=self._on_open,
-            on_message=self._on_message,
-            on_error=self._on_error,
-            on_close=self._on_close)
 
-    def connect(self, ssl_options: dict = None):
-        self.ws.run_forever(sslopt=ssl_options)
+        # self.ws = WebSocketApp(
+        #    url,
+        #    on_open=self._on_open,
+        #    on_message=self._on_message,
+        #    on_error=self._on_error,
+        #    on_close=self._on_close)
 
-    def close(self):
-        self.ws.keep_running = False
-        self.ws.close()
-
-    def publish(self, message: str):
+    async def publish(self, message: str):
         if self.broken:
             return
         if not self.connected:
             self.to_publish.put(message)
             return
-        self.ws.send(message)
-
+        try:
+            await self.ws.send(message)
+        except:
+            self.broken = True
+            self.connected = False
 
     def add_subscription(self, id, filters: Filters):
+        # TODO ... send messages for subscriptions to relay
         with self.lock:
             self.subscriptions[id] = Subscription(id, filters)
 
     def close_subscription(self, id: str) -> None:
+        # TODO ... send messages for subscriptions to relay
         with self.lock:
             if id in self.subscriptions.keys():
                 self.subscriptions.pop(id)
-
-    def update_subscription(self, id: str, filters: Filters) -> None:
-        with self.lock:
-            subscription = self.subscriptions[id]
-            subscription.filters = filters
 
     def to_json_object(self) -> dict:
         return {
@@ -81,22 +86,42 @@ class Relay:
             "subscriptions": [subscription.to_json_object() for subscription in self.subscriptions.values()]
         }
 
-    def _on_open(self, class_obj):
+    async def connect(self):
         self.broken = False
-        self.connected = True
-        if self.to_publish.qsize() > 0:
-            for message in iter(self.to_publish.get, None):
-                self.publish(message)
+        try:
+            self.ws = await websockets.client.connect(self.url, open_timeout=2)
+            self.connected = True
+        except:
+            self.connected = False
 
-    def _on_close(self, class_obj, status_code, message):
-        self.broken = False
-        self.connected = False
+        logger.debug(self.url + ": connected " + str(self.connected))
 
-    def _on_message(self, class_obj, message: str):
+    async def receive(self):
+        logger.debug("relay started receiving [" + self.url + "]")
+        while self.connected:
+            try:
+                message = await self.ws.recv()
+
+                if message:
+                    logger.debug("relay received message [" + self.url + "]")
+                    self._on_message(message)
+            except Exception as e:
+                logger.error("relay had an error: "+str(e)+" [" + self.url + "]")
+                self._on_error(e)
+            await asyncio.sleep(0.1)
+        logger.debug("relay no longer receiving [" + self.url + "]")
+
+    async def close(self):
+        if self.connected and self.ws:
+            await self.ws.close()
+            self.connected = False
+            self.broken = False
+
+    def _on_message(self, message: str):
         if self._is_valid_message(message):
             self.message_pool.add_message(message, self.url)
 
-    def _on_error(self, class_obj, error):
+    def _on_error(self, error: Exception):
         self.broken = True
         self.connected = False
 
